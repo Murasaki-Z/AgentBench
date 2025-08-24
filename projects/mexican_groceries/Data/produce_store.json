@@ -7,12 +7,12 @@
   {
     "item": "tomatoes",
     "price": 1.99,
-    "unit": "lb"
+    "unit": "kg"
   },
   {
     "item": "onion",
     "price": 0.99,
-    "unit": "lb"
+    "unit": "kg"
   },
   {
     "item": "avocado",

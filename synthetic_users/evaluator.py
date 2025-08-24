@@ -61,7 +61,7 @@ def run_evaluation():
     print(f"❌ Failures: {fail_count}")
     print("====================================")
     print("\nEvaluation complete. Check the log file for detailed results:")
-    print("--> projects/mexican_cooking_bot/logs/run_log.jsonl")
+    print("--> projects/mexican_groceries/logs/run_log.jsonl")
 
 
 if __name__ == "__main__":

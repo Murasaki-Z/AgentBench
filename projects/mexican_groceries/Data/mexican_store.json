@@ -17,7 +17,7 @@
   {
     "item": "onion",
     "price": 1.20,
-    "unit": "lb"
+    "unit": "kg"
   },
   {
     "item": "cilantro",
@@ -28,5 +28,20 @@
     "item": "lime",
     "price": 0.50,
     "unit": "each"
+  },
+    {
+    "item": "bay leaf",
+    "price": 0.99,
+    "unit": "25g"
+  },
+  {
+    "item": "cumin",
+    "price": 0.99,
+    "unit": "25g"
+  },
+    {
+    "item": "cumin & mace salt",
+    "price": 1.99,
+    "unit": "20g"
   }
 ]
