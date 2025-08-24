@@ -1,0 +1,32 @@
+[
+  {
+    "item": "chicken breast",
+    "price": 5.99,
+    "unit": "lb"
+  },
+  {
+    "item": "tomatoes",
+    "price": 1.99,
+    "unit": "lb"
+  },
+  {
+    "item": "onion",
+    "price": 0.99,
+    "unit": "lb"
+  },
+  {
+    "item": "avocado",
+    "price": 1.75,
+    "unit": "each"
+  },
+  {
+    "item": "garlic",
+    "price": 0.75,
+    "unit": "head"
+  },
+  {
+    "item": "lime",
+    "price": 0.45,
+    "unit": "each"
+  }
+]

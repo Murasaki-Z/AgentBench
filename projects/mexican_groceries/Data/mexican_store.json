@@ -1,0 +1,32 @@
+[
+  {
+    "item": "chipotles in adobo",
+    "price": 2.99,
+    "unit": "can"
+  },
+  {
+    "item": "corn tortillas",
+    "price": 2.50,
+    "unit": "pack"
+  },
+  {
+    "item": "avocado",
+    "price": 1.50,
+    "unit": "each"
+  },
+  {
+    "item": "onion",
+    "price": 1.20,
+    "unit": "lb"
+  },
+  {
+    "item": "cilantro",
+    "price": 0.99,
+    "unit": "bunch"
+  },
+  {
+    "item": "lime",
+    "price": 0.50,
+    "unit": "each"
+  }
+]
