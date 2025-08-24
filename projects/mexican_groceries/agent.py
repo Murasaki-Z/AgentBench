@@ -2,6 +2,9 @@
 import json
 from pathlib import Path
 
+from itertools import chain
+
+
 # --- LangChain Core Imports ---
 from langchain_openai import ChatOpenAI
 from langchain.prompts import PromptTemplate
@@ -10,22 +13,36 @@ from langchain_core.output_parsers import JsonOutputParser
 # --- Local Project Imports ---
 from . import config
 from .agent_state import AgentState
-from .schemas import Recipe # <-- Import our new Pydantic schema
+from .schemas import Recipe
 from core_lib.data_sinks import JSONDataSink
+from core_lib.semantic_tools import find_best_match
+
 
 # --- SERVICE and DATA LOADING ---
 
 llm = ChatOpenAI(api_key=config.OPENAI_API_KEY, model=config.DEFAULT_MODEL)
 
+llm_small = ChatOpenAI(api_key=config.OPENAI_API_KEY, model=config.SMALL_MODEL)
+
 def load_store_data():
+
     data_path = Path(__file__).parent / "data"
+
     with open(data_path / "mexican_store.json") as f:
         mexican_store_data = json.load(f)
+
     with open(data_path / "produce_store.json") as f:
         produce_store_data = json.load(f)
-    return mexican_store_data, produce_store_data
+    
+
+    # Pre-process for easier lookup
+    mexican_store_map = {item['item'].lower(): item for item in mexican_store_data}
+    produce_store_map = {item['item'].lower(): item for item in produce_store_data}
+
+    return mexican_store_map, produce_store_map
 
 MEXICAN_STORE, PRODUCE_STORE = load_store_data()
+ALL_STORE_ITEMS = list(MEXICAN_STORE.keys()) + list(PRODUCE_STORE.keys())
 
 # --- DATA SINK SETUP ---
 log_file_path = Path(__file__).parent / "logs" / "run_log.jsonl"
@@ -80,23 +97,47 @@ User's request: "{request}"
     return {"ingredients_list": normalized_ingredients}
 
 def search_stores_node(state: AgentState) -> dict:
-    """Node 2: Takes the ingredient list and searches both store JSON files."""
-    print("---NODE: Searching Stores---")
-    ingredients = state['ingredients_list']
+    """
+    Node 2 Searches stores using a hybrid approach.
+    """
+    print("---NODE: Searching Stores (V2 with Self-Correction)---")
+
+    ingredients_to_find = state['ingredients_list']
     found_items = []
     missing_items = []
 
-    for ingredient in ingredients:
-        item_found_in_a_store = False
-        for item in MEXICAN_STORE:
-            if ingredient.lower() in item['item'].lower():
-                found_items.append({"ingredient": ingredient, "store": "Mexican Store", **item})
-                item_found_in_a_store = True
-        for item in PRODUCE_STORE:
-            if ingredient.lower() in item['item'].lower():
-                found_items.append({"ingredient": ingredient, "store": "Produce Store", **item})
-                item_found_in_a_store = True
-        if not item_found_in_a_store:
+    for ingredient in ingredients_to_find:
+        print(f"  - Searching for: '{ingredient}'")
+        item_found = False
+
+        # --- Step 1: Try simple, fast matching first ---
+        for store_item_name, item_details in chain(MEXICAN_STORE.items(), PRODUCE_STORE.items()):
+            if ingredient.lower() in store_item_name:
+                store_name = "Mexican Store" if store_item_name in MEXICAN_STORE else "Produce Store"
+                found_items.append({"ingredient": ingredient, "store": store_name, **item_details})
+                item_found = True
+
+        # --- Step 2: If simple matching fails, engage Self-Correction ---
+        if not item_found:
+            print(f"    > Simple search failed. Engaging LLM for semantic match...")
+            # We pass the small, fast LLM client to our tool
+            best_match = find_best_match(ingredient, ALL_STORE_ITEMS, llm_client= llm_small)
+
+            if best_match:
+                print(f"    > Semantic match found: '{ingredient}' -> '{best_match}'")
+                if best_match in MEXICAN_STORE:
+                    store_name = "Mexican Store"
+                    item_details = MEXICAN_STORE[best_match]
+                else:
+                    store_name = "Produce Store"
+                    item_details = PRODUCE_STORE[best_match]
+                
+                found_items.append({"ingredient": ingredient, "store": store_name, **item_details})
+                item_found = True
+            else:
+                 print(f"    > Semantic match failed. Item not found.")
+
+        if not item_found:
             missing_items.append(ingredient)
 
     print(f" > Found items: {len(found_items)}")
@@ -106,7 +147,7 @@ def search_stores_node(state: AgentState) -> dict:
 def compile_shopping_list_node(state: AgentState) -> dict:
     """Node 3: Compiles the final shopping list, finding the best price."""
     print("---NODE: Compiling Shopping List---")
-    
+
     search_results = state['store_search_results']
     missing = state['missing_items']
     items_by_ingredient = {}
