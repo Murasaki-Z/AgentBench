@@ -13,8 +13,7 @@ from langchain_core.output_parsers import JsonOutputParser
 # --- Local Project Imports ---
 from . import config
 from .agent_state import AgentState
-from .schemas import Recipe
-from core_lib.data_sinks import JSONDataSink
+from .schemas import Recipe, Intent
 from core_lib.semantic_tools import find_best_match
 
 
@@ -44,12 +43,45 @@ def load_store_data():
 MEXICAN_STORE, PRODUCE_STORE = load_store_data()
 ALL_STORE_ITEMS = list(MEXICAN_STORE.keys()) + list(PRODUCE_STORE.keys())
 
-# --- DATA SINK SETUP ---
-log_file_path = Path(__file__).parent / "logs" / "run_log.jsonl"
-data_sink = JSONDataSink(log_path=log_file_path)
-
 
 # --- AGENT NODES ---
+
+def classify_intent_node(state: AgentState) -> dict:
+    """
+    Node: Classifies the user's intent to decide on the overall workflow.
+    """
+    print("---NODE: Classifying Intent---")
+    user_request = state['request']
+
+    print(f"Request: {user_request}" )
+
+    parser = JsonOutputParser(pydantic_object=Intent)
+
+    prompt = PromptTemplate(
+        template="""You are an expert at classifying user requests for a Mexican cooking bot.
+        You speak English but can speak other languages
+    Your goal is to determine the user's intent from their message.
+    The available intents are: "recipe_request", "off_topic", "ambiguous".
+    "recipe_request": The user is asking for a recipe, a shopping list, or ingredients for a specific dish.
+    "off_topic": The user is asking about something completely unrelated to cooking, recipes, or groceries.
+    "ambiguous": The user's request is related to food but is too vague to be a specific recipe request (e.g., "tacos", "help me").
+    User's request: "{request}"
+    {format_instructions}
+    """,
+    input_variables=["request"],
+    partial_variables={"format_instructions": parser.get_format_instructions()},
+    )
+
+    chain = prompt | llm_small | parser
+    
+    try:
+        response = chain.invoke({"request": user_request})
+        intent = response['intent']
+        print(f" > Classified intent as: {intent}")
+        return {"intent": intent}
+    except Exception as e:
+        print(f" > Failed to classify intent. Defaulting to ambiguous. Error: {e}")
+        return {"intent": "ambiguous"}
 
 def identify_ingredients_node(state: AgentState) -> dict:
     """
@@ -65,17 +97,17 @@ def identify_ingredients_node(state: AgentState) -> dict:
     # 2. Create a new, more detailed prompt template
     prompt = PromptTemplate(
         template="""
-You are an expert Mexican chef and grocery list assistant.
-A user wants to make a dish. Your task is to identify the core ingredients.
+    You are an expert Mexican chef and grocery list assistant.
+    A user wants to make a dish. Your task is to identify the core ingredients.
 
-For each ingredient, you MUST normalize its name to a common, base form that would be found in a store's inventory system.
-For example:
-- "chipotle peppers in adobo" should be normalized to "chipotles in adobo".
-- "chicken breasts" should be normalized to "chicken breast".
+    For each ingredient, you MUST normalize its name to a common, base form that would be found in a store's inventory system.
+    For example:
+    - "chipotle peppers in adobo" should be normalized to "chipotles in adobo".
+    - "chicken breasts" should be normalized to "chicken breast".
 
-User's request: "{request}"
+    User's request: "{request}"
 
-{format_instructions}
+    {format_instructions}
 """,
         input_variables=["request"],
         # 3. The magic! We inject the parser's formatting instructions into the prompt.
@@ -95,6 +127,26 @@ User's request: "{request}"
 
     print(f" > Normalized ingredients identified: {normalized_ingredients}")
     return {"ingredients_list": normalized_ingredients}
+
+def clarify_request_node(state: AgentState) -> dict:
+    """
+    Node: Asks the user for clarification if the initial request is ambiguous.
+    """
+    print("---NODE: Clarifying Request---")
+    user_request = state['request']
+    
+    prompt = f"""You are a friendly and helpful cooking assistant for Mexican food.
+    The user's request is too vague or off-topic for you to create a shopping list.
+    Your task is to ask a polite, clarifying question to get the user back on track.
+    Ask about what specific dish they would like to make. Speak the same language as user, default English
+    User's request: "{user_request}"
+    Your clarifying question:
+    """
+    response = llm_small.invoke(prompt)
+    
+    print(f" > Generated question: {response.content}")
+    return {"clarification_question": response.content}
+
 
 def search_stores_node(state: AgentState) -> dict:
     """
@@ -171,24 +223,59 @@ def compile_shopping_list_node(state: AgentState) -> dict:
         shopping_list_str += f"\n\nNote: I could not find prices for: {', '.join(missing)}."
     print(" > Final list generated.")
     return {"shopping_list": shopping_list_str}
+    
+# --- CONDITIONAL ROUTER ---
 
-def log_results_node(state: AgentState) -> None:
-    """Node 4: Logs the final state of the agent run."""
-    print("---NODE: Logging Results---")
-    data_sink.write(state)
-    return {}
+def master_router(state: AgentState) -> str:
+    """
+    This is the master router. It directs the workflow based on the
+    classified intent of the user's request.
+    """
+    print("---MASTER ROUTER---")
+    intent = state.get("intent")
+
+    if intent == "recipe_request":
+        print(" > Decision: Intent is a recipe request. Routing to IDENTIFY_INGREDIENTS.")
+        return "identify_ingredients"
+    elif intent == "ambiguous":
+        print(" > Decision: Intent is ambiguous. Routing to CLARIFY.")
+        return "clarify"
+    elif intent == "off_topic":
+        print(" > Decision: Intent is off-topic. Routing to CLARIFY.")
+        return "clarify"
+    else:
+        # A fallback case, though it should ideally not be reached
+        print(" > Decision: No clear intent. Defaulting to CLARIFY.")
+        return "clarify"
 
 # --- GRAPH ASSEMBLY ---
 from langgraph.graph import StateGraph, END
 
 workflow = StateGraph(AgentState)
+
+workflow.add_node("classify_intent", classify_intent_node)
 workflow.add_node("identify_ingredients", identify_ingredients_node)
+workflow.add_node("clarify_request", clarify_request_node)
 workflow.add_node("search_stores", search_stores_node)
 workflow.add_node("compile_list", compile_shopping_list_node)
-workflow.add_node("log_results", log_results_node)
-workflow.set_entry_point("identify_ingredients")
+
+workflow.set_entry_point("classify_intent")
+
+
+# --- Add the Conditional Edge ---
+# decide the main path
+workflow.add_conditional_edges(
+    "classify_intent",
+    master_router,
+    {
+        "identify_ingredients": "identify_ingredients",
+        "clarify": "clarify_request"
+    }
+)
+
 workflow.add_edge("identify_ingredients", "search_stores")
 workflow.add_edge("search_stores", "compile_list")
-workflow.add_edge("compile_list", "log_results")
-workflow.add_edge("log_results", END)
+workflow.add_edge("compile_list", END)
+workflow.add_edge("clarify_request", END)
+
 graph = workflow.compile()

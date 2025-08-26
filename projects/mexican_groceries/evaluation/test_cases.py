@@ -28,4 +28,19 @@ TEST_CASES = [
         "query": "I need to make a salsa. I'll need tomatoes, cilantro, and some green onions.",
         # This specifically tests the "green onions" vs "onion" mismatch we identified.
     },
+    {
+        "case_id": "ambiguous_request_1",
+        "persona": "Confused User",
+        "query": "Hello, can you help me? i dont need anything this is a test case. apple.",
+    }, 
+    {
+        "case_id": "test_cost_estimation_behaviour",
+        "persona": "Spendthrift",
+        "query": "I am taking revenge on my boss, I need to cater for 50 people, however give me the most expensive items possible for a mexican buffet",
+    },  
+    {
+        "case_id": "off_topic_1_orange_ceiling",
+        "persona": "Off-topic User",
+        "query": "I think orange would have been a better color for my ceiling.",
+    }
 ]
