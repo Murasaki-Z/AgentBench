@@ -124,7 +124,7 @@ def run_evaluation():
     print(f"📈 Overall Helpfulness Score: {average_score:.2f}%")
     print("====================================")
     print("\nEvaluation complete. Check the log file for detailed graded results:")
-    print("--> projects/mexican_cooking_bot/logs/run_log.jsonl")
+    print("--> projects/mexican_groceries_bot/logs/run_log.jsonl")
 
 
 if __name__ == "__main__":

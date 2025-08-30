@@ -1,16 +1,18 @@
-# synthetic_users/e2e_client.py
+# synthetic_users/e2e_client.py (or your online_client.py)
 import discord
 import asyncio
 from typing import Optional
+# from projects.mexican_groceries import config 
 
 class E2EDiscordClient:
     """
     A specialized Discord client for End-to-End (E2E) testing.
-    It connects, sends a single message, and waits for a single reply.
+    Uses an async context manager for robust login/logout.
     """
-    def __init__(self, token: str, test_channel_id: int):
+    def __init__(self, token: str, test_channel_id: int, bot_user_id: int):
         self.token = token
         self.test_channel_id = test_channel_id
+        self.bot_user_id = bot_user_id
         
         intents = discord.Intents.default()
         intents.messages = True
@@ -21,64 +23,53 @@ class E2EDiscordClient:
 
         @self.client.event
         async def on_message(message: discord.Message):
-            # We only care about messages in our specific test channel
             if message.channel.id != self.test_channel_id:
                 return
             
-            # Ignore messages sent by this client itself
-            if message.author == self.client.user:
-                return
+            is_from_bot_under_test = message.author.id == self.bot_user_id
 
-            # If the future is waiting, this must be the reply we're looking for.
-            if self._reply_future and not self._reply_future.done():
+            if is_from_bot_under_test and self._reply_future and not self._reply_future.done():
                 self._reply_future.set_result(message.content)
 
     async def send_and_wait_for_reply(self, message_content: str, timeout: int) -> Optional[str]:
         """
-        Sends a message to the test channel and waits for a reply.
-
-        Returns the content of the reply message, or None if a timeout occurs.
+        Connects, sends a message, waits for a specific reply, and disconnects.
         """
-        try:
-            # The asyncio.Task is needed to run the client and our logic concurrently
-            await asyncio.wait_for(self._run_test(message_content), timeout=timeout)
-            return self._reply_future.result() if self._reply_future else None
-        except asyncio.TimeoutError:
-            print(f"--- E2E Client: Timed out after {timeout} seconds waiting for a reply. ---")
-            return None
-        finally:
-            if self.client.is_ready():
-                await self.client.close()
-
-    async def _run_test(self, message_content: str):
-        async def runner():
-            # This inner function connects the client. 'start' is blocking.
-            await self.client.start(self.token)
-
-        # Start the client in the background
         loop = asyncio.get_event_loop()
-        client_task = loop.create_task(runner())
-
-        # Wait until the client is connected and ready
-        await self.client.wait_until_ready()
-        
-        # Get the channel object
-        channel = self.client.get_channel(self.test_channel_id)
-        if not channel:
-            print(f"--- E2E Client: ERROR: Could not find channel with ID {self.test_channel_id} ---")
-            return
-
-        # Prepare the Future to receive the result from on_message
         self._reply_future = loop.create_future()
         
-        # Send the test message
-        await channel.send(message_content)
+        try:
+            # The 'async with' block handles the entire login/logout lifecycle safely.
+            # We wrap the whole thing in a timeout.
+            async with asyncio.timeout(timeout):
+                # We start the client as a background task
+                client_task = loop.create_task(self.client.start(self.token))
+                
+                # Wait for the client to be ready inside the 'with' block
+                await self.client.wait_until_ready()
+                
+                channel = self.client.get_channel(self.test_channel_id)
+                if not channel:
+                    raise RuntimeError(f"Could not find channel with ID {self.test_channel_id}")
 
-        # Wait for the on_message event to set the result of the future
-        await self._reply_future
+                # Send the message and wait for the reply
+                await channel.send(message_content)
+                reply = await self._reply_future
+                
+                # Once we have the reply, we can gracefully close the client
+                await self.client.close()
+                await client_task # Ensure the client task is fully finished
+                
+                return reply
 
-        # Once we have the reply, we can stop the client
-        await self.client.close()
-
-        # Wait for the client task to finish its shutdown
-        await client_task
+        except asyncio.TimeoutError:
+            print(f"--- E2E Client: Timed out after {timeout} seconds waiting for a reply. ---")
+            # Ensure the client is closed even on timeout
+            if not self.client.is_closed():
+                await self.client.close()
+            return None
+        except Exception as e:
+            print(f"--- E2E Client: An unexpected error occurred: {e} ---")
+            if not self.client.is_closed():
+                await self.client.close()
+            return None
