@@ -10,6 +10,11 @@ metrics:
         if_field_exists: clarification_question
       - name: unknown_path
 
+  - name: ingredient_count_identified
+    description: "Total number of ingredients the agent extracted from the user's request."
+    type: count_list
+    field: ingredients_list
+
   - name: ingredient_find_rate_percent
     description: "% of identified ingredients that were successfully found."
     type: ratio
