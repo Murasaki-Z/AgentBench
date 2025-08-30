@@ -32,6 +32,10 @@ class MetricEngine:
                     results[metric_name] = self._calculate_derive_path(metric_config, final_state)
                 elif metric_type == "ratio":
                     results[metric_name] = self._calculate_ratio(metric_config, final_state)
+                elif metric_type == "count_list":
+                    results[metric_name] = self._calculate_value(metric_config, final_state)
+                elif metric_type == "count_unique_in_list":
+                     results[metric_name] = self._calculate_value(metric_config, final_state)
                 # We can add more 'elif' blocks here for new metric types in the future
                 else:
                     results[metric_name] = "Unsupported metric type"
@@ -43,25 +47,51 @@ class MetricEngine:
     # --- Private Helper Methods for Calculation ---
 
     def _get_value_from_state(self, field_path: str, state: Dict[str, Any]) -> Any:
-        """A simple helper to get a value from a dictionary. V2 will use JMESPath."""
-        return state.get(field_path)
+        """
+        A robust helper to get a value from a state dictionary using dot-notation.
+        Handles nested dictionaries and extracts values from lists of dicts.
+        
+        Examples:
+        - "ingredients_list" -> state['ingredients_list']
+        - "store_search_results.price" -> [0.99, 0.45, ...]
+        """
+        keys = field_path.split('.')
+        current_value = state
+        
+        for key in keys:
+            if current_value is None:
+                return None
+            
+            if isinstance(current_value, dict):
+                current_value = current_value.get(key)
+            elif isinstance(current_value, list):
+                # If we encounter a list, we assume the next key is an attribute
+                # to be extracted from each dictionary in the list.
+                return [
+                    item.get(key) for item in current_value if isinstance(item, dict)
+                ]
+            else:
+                return None # Path is invalid
+        
+        return current_value
 
     def _calculate_value(self, config: Dict[str, Any], state: Dict[str, Any]) -> Any:
         """A central dispatcher to call the right calculation helper for sub-tasks."""
         calc_type = config["type"]
+        field_path = config["field"]
+        
+        # Get the data first using our new robust helper
+        data = self._get_value_from_state(field_path, state)
+        
         if calc_type == "count_list":
-            field_path = config["field"]
-            data_list = self._get_value_from_state(field_path, state)
-            return len(data_list) if isinstance(data_list, list) else 0
+            return len(data) if isinstance(data, list) else 0
         
         if calc_type == "count_unique_in_list":
-            field_path = config["field"]
-            list_path, key_to_count = field_path.rsplit('.', 1)
-            data_list = self._get_value_from_state(list_path, state)
-            if not isinstance(data_list, list): return 0
-            unique_values = {item.get(key_to_count) for item in data_list if isinstance(item, dict)}
+            if not isinstance(data, list): return 0
+            # Use a set for efficient counting of unique values, filtering out None
+            unique_values = {item for item in data if item is not None}
             return len(unique_values)
-        
+            
         raise ValueError(f"Unknown calculation type: {calc_type}")
 
     def _calculate_derive_path(self, config: Dict[str, Any], state: Dict[str, Any]) -> str:
