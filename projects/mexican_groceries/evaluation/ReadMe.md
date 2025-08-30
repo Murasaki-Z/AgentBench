@@ -1,120 +1,144 @@
-# The Metrics & Evaluation System
+# How to Measure Your Bot's Performance
 
-This directory contains everything you need to understand your bot's performance, find its weaknesses, and make it smarter over time.
+Welcome! This is your guide to using the `metrics_definition.yaml` file, which is the control panel for measuring how well your AI agent is doing.
 
-This guide will focus on our "dumb metrics" system, which is powered by the metrics_definition.yaml file.
+You don't need to write any code. This guide will show you how to set up "dumb metrics"—simple, objective measurements that give you a clear, unbiased view of your bot's performance.
 
-## The Core Idea: "Configure, Don't Code"
+## The Big Idea: Tell Us What to Measure
 
-Our philosophy is to make measuring your bot as easy as possible. You shouldn't have to be a software expert to get valuable insights.
+Your agent produces a data record (called the `final_state`) every time it runs. To create a metric, you just need to tell our system which piece of data to look at in that record.
 
-For most common metrics, you just need to declare what you want to measure in the metrics_definition.yaml file. Our analytics engine will see your configuration and handle all the complicated calculation logic for you.
-Think of the keys in your agent's final_state object as the raw ingredients. You just need to tell our factory which ingredients to use, and it will cook up the final report for you.
-## "Easy Mode": Available Metric types in YAML
-This is the fun part. Here are the pre-built metric "recipes" you can use in your metrics_definition.yaml file.
+---
 
-type: derive_path
+### **Step 1: Know Your Data (What's in the `final_state`?)**
 
-This is for figuring out which major workflow or "path" your agent took. It's perfect for understanding the results of your routers and conditional logic.
+Before you can measure anything, you need to know what data is available. The best way to see this is to look at your `production_log.jsonl` or `local_run_log.jsonl` file.
 
-What it does: It checks for the existence of certain keys in the final_state in the order you provide them. The first rule that matches wins.
+Each line in the log is a complete record of a single agent run. Here is an example of what the `final_state` for our Mexican Cooking Bot looks like after a successful run:
 
-Example:
-
+**Example `final_state` Payload:**
+```json
+{
+  "request": "I want to make chicken tinga",
+  "intent": "recipe_request",
+  "ingredients_list": [
+    "chicken breast",
+    "tomatoes",
+    "onion",
+    "chipotles in adobo"
+  ],
+  "store_search_results": [
+    {
+      "ingredient": "chicken breast",
+      "store": "Produce Store",
+      "item": "chicken breast",
+      "price": 5.99,
+      "unit": "lb"
+    },
+    {
+      "ingredient": "onion",
+      "store": "Produce Store",
+      "item": "onion",
+      "price": 0.99,
+      "unit": "lb"
+    },
+    {
+      "ingredient": "chipotles in adobo",
+      "store": "Mexican Store",
+      "item": "chipotles in adobo",
+      "price": 2.99,
+      "unit": "can"
+    }
+  ],
+  "shopping_list": "Here is your optimized shopping list...",
+  "missing_items": [
+    "tomatoes"
+  ],
+  "clarification_question": null
+}
 ```
-Yaml
+
+**Use this as your menu.** The `field` names in your metric definitions below should match the keys from this JSON object (e.g., `ingredients_list`, `store_search_results`).
+
+---
+
+### **Step 2: Choose Your Metric Types**
+
+Now that you know what data you have, you can pick the right calculator for the job. Here are the pre-built metric calculators you can use.
+
+#### `type: derive_path`
+
+**Use this to:** Figure out which main path or workflow your agent took. This is great for tracking how often your bot succeeds vs. asks for clarification.
+It is a fantastic tool for behavioural analysis, a near-substitute for Clickstream.
+
+**Example:**
+```yaml
 - name: agent_path
-  description: "The primary logical path the agent took."
   type: derive_path
   paths:
-    # Rule 1: If the 'shopping_list' key exists and isn't empty...
+    # Based on our example payload, the 'shopping_list' key exists,
+    # so this rule would match and the metric value would be 'recipe_path'.
     - name: recipe_path
       if_field_exists: shopping_list
-    # Rule 2: Otherwise, if the 'clarification_question' key exists...
+
     - name: clarification_path
       if_field_exists: clarification_question
-    # Rule 3: If nothing else matched, use this as the default.
-    - name: unknown_path
 ```
 
-type: ratio
+---
 
-This is your go-to for calculating percentages, like success rates or accuracy scores.
+#### `type: count_list`
 
-What it does: It calculates numerator / denominator. You just need to tell it how to find those two numbers.
+**Use this to:** Count the total number of items in a list.
 
-Example:
-
+**Example:**
+```yaml
+- name: num_ingredients_identified
+  type: count_list
+  # This will look at our example payload and count the items in the
+  # 'ingredients_list'. The result would be 4.
+  field: ingredients_list
 ```
-Yaml
+
+---
+
+#### `type: count_unique_in_list`
+
+**Use this to:** Count the unique items in a list of objects.
+
+**Example:**
+```yaml
+- name: num_unique_items_found
+  type: count_unique_in_list
+  # This looks at the 'store_search_results' list in our payload.
+  # It then looks at the 'ingredient' key for each object inside that list.
+  # The result would be 3 (chicken breast, onion, chipotles in adobo).
+  field: store_search_results.ingredient
+```
+
+---
+
+#### `type: ratio`
+
+**Use this to:** Calculate percentages, like a success rate. This type works by combining other calculators.
+
+**Example:**
+```yaml
 - name: ingredient_find_rate_percent
-  description: "% of identified ingredients that were successfully found."
   type: ratio
   numerator:
-    # How to calculate the top number. Here, we're counting unique
-    # values of the 'ingredient' key inside the 'store_search_results' list.
+    # This will calculate 'num_unique_items_found' from the example above. Result: 3
     type: count_unique_in_list
     field: store_search_results.ingredient
   denominator:
-    # How to calculate the bottom number. Here, we're just counting
-    # the total number of items in the 'ingredients_list'.
+    # This will calculate 'num_ingredients_identified'. Result: 4
     type: count_list
     field: ingredients_list
   options:
-    # Tell the engine to multiply the final result by 100.
+    # The final result will be (3 / 4) * 100 = 75.0
     format_as_percent: true
-    # To avoid a divide-by-zero error, what value should be returned
-    # if the denominator is 0?
     on_zero_denominator: 100.0
 ```
 
-Calculation Helpers
-The ratio type uses other calculation types to find its numbers. You can use these on their own, too!
-type: count_list
-Counts the number of items in a list.
+By first looking at your data payload and then using these building blocks, you can create a comprehensive and objective view of your agent's performance.
 
-```
-Yaml
-- name: num_ingredients_identified
-  type: count_list
-  field: ingredients_list
-
-type: count_unique_in_list
-Counts the number of unique values for a specific key within a list of dictionaries. This is useful for when your agent might find the same item multiple times.
-
-```
-Yaml
-- name: num_unique_items_found
-  type: count_unique_in_list
-  field: store_search_results.ingredient # Looks in the 'store_search_results' list for the 'ingredient' key
-
-## "Minecraft Mode": The Custom Code Escape Hatch
-What if you need a metric that's way too complex for YAML? No problem. We've got a "crafting table" for that.
-
-If our engine detects a custom_metrics.py file in this directory, it will automatically load and run any custom metric classes you define there. You just need to follow a simple "contract."
-
-The Contract (BaseMetric):
-Your custom class must inherit from BaseMetric and implement a name, description, and calculate method.
-
-Example (evaluation/custom_metrics.py):
-```
-<!-- Python -->
-from core_library.metrics_base import BaseMetric # You'd import this
-
-class MyCustomMetric(BaseMetric):
-    @property
-    def name(self) -> str:
-        return "my_super_specific_metric"
-
-    @property
-    def description(self) -> str:
-        return "A metric that does some crazy custom logic."
-
-    def calculate(self, final_state: dict) -> float:
-        # You have the full power of Python here!
-        # Do whatever complex calculation you need.
-        if final_state.get("some_key") == "some_value":
-            return 100.0
-        return 0.0
-```
-This gives you the best of both worlds: simple configuration for the easy stuff and unlimited power for the hard stuff.
