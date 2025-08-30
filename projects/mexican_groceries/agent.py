@@ -1,5 +1,5 @@
 # projects/mexican_cooking_bot/agent.py
-import json
+import json, time
 from pathlib import Path
 
 from itertools import chain
@@ -14,7 +14,7 @@ from langchain_core.output_parsers import JsonOutputParser
 from . import config
 from .agent_state import AgentState
 from .schemas import Recipe, Intent
-from core_lib.semantic_tools import find_best_match
+from core_lib.semantic_tools import find_best_matches_batched 
 
 
 # --- SERVICE and DATA LOADING ---
@@ -108,7 +108,7 @@ def identify_ingredients_node(state: AgentState) -> dict:
     User's request: "{request}"
 
     {format_instructions}
-""",
+    """,
         input_variables=["request"],
         # 3. The magic! We inject the parser's formatting instructions into the prompt.
         # This tells the LLM exactly how to format the JSON output.
@@ -150,51 +150,61 @@ def clarify_request_node(state: AgentState) -> dict:
 
 def search_stores_node(state: AgentState) -> dict:
     """
-    Node 2 Searches stores using a hybrid approach.
+    Node 2 (V3 with Batched Self-Correction): Searches stores using a hybrid approach.
     """
-    print("---NODE: Searching Stores (V2 with Self-Correction)---")
-
-    ingredients_to_find = state['ingredients_list']
+    print("---NODE: Searching Stores (V3 with Batched Self-Correction)---")
+    start_time = time.time()
+    ingredients_to_find = state.get('ingredients_list', [])
     found_items = []
-    missing_items = []
+    items_needing_correction = []
 
+    # --- Step 1: Simple Search Pass ---
+    # First, try to find matches with a simple, fast string search.
     for ingredient in ingredients_to_find:
-        print(f"  - Searching for: '{ingredient}'")
-        item_found = False
-
-        # --- Step 1: Try simple, fast matching first ---
-        for store_item_name, item_details in chain(MEXICAN_STORE.items(), PRODUCE_STORE.items()):
+        match_found = False
+        for store_item_name in ALL_STORE_ITEMS:
             if ingredient.lower() in store_item_name:
+                # Logic to get item details and add to found_items
                 store_name = "Mexican Store" if store_item_name in MEXICAN_STORE else "Produce Store"
+                item_details = (MEXICAN_STORE | PRODUCE_STORE)[store_item_name]
                 found_items.append({"ingredient": ingredient, "store": store_name, **item_details})
-                item_found = True
+                match_found = True
+                break # Move to the next ingredient once a simple match is found
+        
+        if not match_found:
+            items_needing_correction.append(ingredient)
 
-        # --- Step 2: If simple matching fails, engage Self-Correction ---
-        if not item_found:
-            print(f"    > Simple search failed. Engaging LLM for semantic match...")
-            # We pass the small, fast LLM client to our tool
-            best_match = find_best_match(ingredient, ALL_STORE_ITEMS, llm_client= llm_small)
+    # --- Step 2: Batched Self-Correction Pass ---
+    # If any items failed the simple search, run them through the batched LLM tool.
+    if items_needing_correction:
+        print(f" > Simple search failed for {len(items_needing_correction)} items. Engaging batched LLM...")
+        
+        matched_map = find_best_matches_batched(
+            queries=items_needing_correction,
+            options=ALL_STORE_ITEMS,
+            llm_client=llm_small
+        )
+        print(f" > Batched correction found {len(matched_map)} matches.")
 
-            if best_match:
-                print(f"    > Semantic match found: '{ingredient}' -> '{best_match}'")
-                if best_match in MEXICAN_STORE:
-                    store_name = "Mexican Store"
-                    item_details = MEXICAN_STORE[best_match]
-                else:
-                    store_name = "Produce Store"
-                    item_details = PRODUCE_STORE[best_match]
-                
-                found_items.append({"ingredient": ingredient, "store": store_name, **item_details})
-                item_found = True
-            else:
-                 print(f"    > Semantic match failed. Item not found.")
+        for original_query, matched_item_name in matched_map.items():
+            store_name = "Mexican Store" if matched_item_name in MEXICAN_STORE else "Produce Store"
+            item_details = (MEXICAN_STORE | PRODUCE_STORE)[matched_item_name]
+            found_items.append({"ingredient": original_query, "store": store_name, **item_details})
 
-        if not item_found:
-            missing_items.append(ingredient)
+    # --- Step 3: Final Consolidation ---
+    # Determine the final list of missing items.
+    final_found_queries = {item['ingredient'] for item in found_items}
+    final_missing_items = [
+        query for query in ingredients_to_find if query not in final_found_queries
+    ]
 
-    print(f" > Found items: {len(found_items)}")
-    print(f" > Missing items: {missing_items}")
-    return {"store_search_results": found_items, "missing_items": missing_items}
+    print(f" > Total items found: {len(final_found_queries)}")
+    print(f" > Final missing items: {final_missing_items}")
+    print(f"processing took: {time.time()-start_time:.4f} seconds")
+    return {
+        "store_search_results": found_items,
+        "missing_items": final_missing_items
+    }
 
 def compile_shopping_list_node(state: AgentState) -> dict:
     """Node 3: Compiles the final shopping list, finding the best price."""
@@ -233,6 +243,7 @@ def master_router(state: AgentState) -> str:
     """
     print("---MASTER ROUTER---")
     intent = state.get("intent")
+
 
     if intent == "recipe_request":
         print(" > Decision: Intent is a recipe request. Routing to IDENTIFY_INGREDIENTS.")

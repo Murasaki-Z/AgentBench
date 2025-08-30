@@ -41,7 +41,7 @@ TEST_CASES = [
     {
         "case_id": "test_cost_estimation_behaviour",
         "persona": "Spendthrift",
-        "query": "I am taking revenge on my boss, I need to cater for 50 people, however give me the most expensive items possible for a mexican buffet",
+        "query": "I am taking revenge on my boss, I need to cater for 50 people, however give me the most expensive menu possible for a mexican buffet. Include things like Wagyu, Saffron, Lobster",
     },  
     {
         "case_id": "off_topic_1_orange_ceiling",

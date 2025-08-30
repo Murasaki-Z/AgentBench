@@ -208,3 +208,5 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+projects/mexican_cooking_bot/logs/e2e_run_log.jsonl
+projects/mexican_groceries/logs/production_log.jsonl

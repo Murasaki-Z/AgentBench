@@ -49,9 +49,9 @@
     "price": 1.99,
     "unit": "1kg"
   },
-    {
+  {
     "item": "pimienta negra",
     "price": 2.29,
     "unit": "50g"
-  },
+  }
 ]

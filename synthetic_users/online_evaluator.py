@@ -136,10 +136,14 @@ class E2ETester(discord.Client):
 
                 reply = await self.wait_for(
                     "message",
-                    # check=lambda m: m.author.id == self.bot_under_test_id and m.channel == channel,
+                    check=lambda m: int(m.author.id) ==  int(DISCORD_BOT_USER_ID) and m.channel == channel,
                     timeout=60.0,
                 )
                 bot_reply_content = reply.content
+                print(reply.author.id)
+                print(DISCORD_BOT_USER_ID)
+                print(reply.channel)
+                print(channel)
                 print("✅ Bot replied.")
 
             except asyncio.TimeoutError:
