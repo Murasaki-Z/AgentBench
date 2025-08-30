@@ -12,17 +12,23 @@ metrics:
 
   - name: ingredient_count_identified
     description: "Total number of ingredients the agent extracted from the user's request."
-    type: count_list
+    type: count
     field: ingredients_list
+  
+  - name: more_than_3
+    description: "Any ingredients which are more than $3"
+    type: where(> 0.5)
+    field: store_search_results.price
+
 
   - name: ingredient_find_rate_percent
     description: "% of identified ingredients that were successfully found."
     type: ratio
     numerator:
-      type: count_unique_in_list
+      type: distinct | count
       field: store_search_results.ingredient
     denominator:
-      type: count_list
+      type: count
       field: ingredients_list
     options:
       format_as_percent: true

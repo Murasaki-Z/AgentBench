@@ -65,7 +65,7 @@ class AnalyticsEngine:
             calculated_metrics = self.metric_engine.calculate_all(log_entry)
             
             # Add some metadata from the log itself
-            calculated_metrics["timestamp_utc"] = log_entry.get("timestamp_utc")
+            # calculated_metrics["timestamp_utc"] = log_entry.get("timestamp_utc")
             
             all_results.append({"metrics": calculated_metrics})
 
@@ -95,67 +95,89 @@ class AnalyticsEngine:
 
     def print_summary(self, all_results: list[dict], lookback_hours: float):
         """
-        Calculates aggregate statistics and prints a summary report based on
-        the metric definitions provided to the engine.
+        Calculates aggregate statistics and prints a summary report.
+        This version automatically infers the type of each metric.
         """
         print("\n\n========== Batch Analysis Summary ==========")
         print(f"--- Report for the last {lookback_hours} hours ---")
         print(f"--- Total Interactions Processed: {len(all_results)} ---")
 
-        # --- Step 1: Pre-categorize all defined metrics ---
-        numeric_metric_names = set()
-        categorical_metric_names = set()
-
-        # The MetricEngine holds the definitions from the YAML file
-        for metric_def in self.metric_engine.metric_definitions:
-            m_name = metric_def["name"]
-            # We'll assume types that produce numbers are numeric, the rest are categorical.
-            # This is a simple but effective heuristic.
-            if metric_def["type"] in ["ratio", "count_list", "count_unique_in_list"]:
-                numeric_metric_names.add(m_name)
-            else: # e.g., 'derive_path'
-                categorical_metric_names.add(m_name)
-        
-        # Manually add our hardcoded latency metric
-        numeric_metric_names.add("total_latency_ms")
-
-        # --- Step 2: Aggregate results based on the pre-categorized lists ---
-        numeric_results = defaultdict(list)
-        categorical_results = defaultdict(lambda: defaultdict(int))
-
+        # --- Step 1: Aggregate all results by metric name ---
+        # We no longer need to pre-categorize. We'll figure out the type from the data.
+        aggregated_results = defaultdict(list)
         for result in all_results:
             metrics = result.get("metrics", {})
             for name, value in metrics.items():
-                if name in numeric_metric_names:
-                    try:
-                        numeric_results[name].append(float(value))
-                    except (ValueError, TypeError):
-                        continue # Ignore if value is not a valid number
-                elif name in categorical_metric_names:
-                    categorical_results[name][value] += 1
-                # Any other fields in the log (like timestamp_utc) are now ignored.
+                aggregated_results[name].append(value)
 
-        # --- Step 3: Print the cleaned and separated reports ---
-        print("\n--- Objective Metrics (Averages) ---")
-        if not numeric_results:
-            print("No numeric metrics to display.")
+        # --- Step 2: Dynamically create report sections ---
+        numeric_reports = {}
+        categorical_reports = defaultdict(lambda: defaultdict(int))
+        list_reports = defaultdict(list)
+
+        for name, values in aggregated_results.items():
+            # Heuristic: If all values are lists, treat it as a list metric.
+            if all(isinstance(v, list) for v in values):
+                # Flatten the list of lists into one big list for analysis
+                list_reports[name] = [item for sublist in values for item in sublist]
+            # Heuristic: If any value is a number, treat it as a numeric metric.
+            elif any(isinstance(v, (int, float)) for v in values):
+                numeric_reports[name] = [v for v in values if isinstance(v, (int, float))]
+            # Fallback: Treat as categorical.
+            else:
+                for value in values:
+                    categorical_reports[name][value] += 1
+        
+        # --- Step 3: Print the reports ---
+        print("\n--- Objective Metrics (Aggregated Numeric) ---")
+        if not numeric_reports: print("No numeric metrics to display.")
         else:
-            for name, values in sorted(numeric_results.items()):
+            for name, values in sorted(numeric_reports.items()):
                 avg = sum(values) / len(values) if values else 0
                 min_val = min(values) if values else 0
                 max_val = max(values) if values else 0
                 print(f"- {name:<30}: Avg={avg:<10.2f} | Min={min_val:<10.2f} | Max={max_val:<10.2f}")
 
         print("\n--- Categorical Metrics (Distribution) ---")
-        if not categorical_results:
-            print("No categorical data to display.")
+        if not categorical_reports: print("No categorical data to display.")
         else:
-            for name, value_counts in sorted(categorical_results.items()):
+            for name, value_counts in sorted(categorical_reports.items()):
                 print(f"- Metric: '{name}'")
-                total_for_metric = sum(value_counts.values())
-                for value, count in value_counts.items():
-                    percent = (count / total_for_metric) * 100 if total_for_metric else 0
+                total = sum(value_counts.values())
+                # Show top 5 most common values for brevity
+                for value, count in sorted(value_counts.items(), key=lambda item: item[1], reverse=True)[:5]:
+                    percent = (count / total) * 100 if total else 0
                     print(f"  - {str(value):<28}: {count} occurrences ({percent:.1f}%)")
+                if len(value_counts) > 5:
+                    print(f"  - ... and {len(value_counts) - 5} more unique values.")
+
+        print("\n--- List-Based Metrics (Value Distribution & Summary) ---")
+        if not list_reports: print("No list-based metrics to display.")
+        else:
+            for name, all_values in sorted(list_reports.items()):
+                print(f"- Metric: '{name}'")
+                if not all_values:
+                    print("  - No values found across all runs.")
+                    continue
+                
+                # --- NEW: Show the distribution of the most common items in the list ---
+                value_counts = defaultdict(int)
+                for v in all_values: value_counts[v] += 1
+                
+                print("  - Top 5 Most Common Values:")
+                for value, count in sorted(value_counts.items(), key=lambda item: item[1], reverse=True)[:5]:
+                    percent = (count / len(all_values)) * 100
+                    print(f"    - {str(value):<26}: {count} times ({percent:.1f}%)")
+                if len(value_counts) > 5:
+                    print(f"    - ... and {len(value_counts) - 5} more unique values.")
+
+                # --- Secondary: Provide summary stats ---
+                print("  - Overall Summary:")
+                numeric_values = [v for v in all_values if isinstance(v, (int, float))]
+                print(f"    - Total Items Collected: {len(all_values)}")
+                print(f"    - Unique Items         : {len(value_counts)}")
+                if numeric_values:
+                    print(f"    - Numeric Avg          : {sum(numeric_values) / len(numeric_values):.2f}")
 
         print("\n==========================================")
 
@@ -182,7 +204,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--hours",
         type=float,
-        default=24,
+        default=48,
         help="Lookback window in hours for log analysis."
     )
     
