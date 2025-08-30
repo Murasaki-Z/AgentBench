@@ -1,4 +1,4 @@
-The Metrics & Evaluation System
+**The Metrics & Evaluation System**
 
 This directory contains everything you need to understand your bot's performance, find its weaknesses, and make it smarter over time.
 
