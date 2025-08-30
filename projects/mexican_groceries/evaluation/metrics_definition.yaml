@@ -1,0 +1,24 @@
+# projects/mexican_cooking_bot/evaluation/metrics_definition.yaml
+metrics:
+  - name: agent_path
+    description: "The primary logical path the agent took."
+    type: derive_path
+    paths:
+      - name: recipe_path
+        if_field_exists: shopping_list
+      - name: clarification_path
+        if_field_exists: clarification_question
+      - name: unknown_path
+
+  - name: ingredient_find_rate_percent
+    description: "% of identified ingredients that were successfully found."
+    type: ratio
+    numerator:
+      type: count_unique_in_list
+      field: store_search_results.ingredient
+    denominator:
+      type: count_list
+      field: ingredients_list
+    options:
+      format_as_percent: true
+      on_zero_denominator: 100.0
