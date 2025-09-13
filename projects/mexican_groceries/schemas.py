@@ -15,6 +15,7 @@ class Recipe(BaseModel):
     A Pydantic model for a recipe, which is a list of ingredients.
     This is the top-level object we want the LLM to return.
     """
+    dish_name: str = Field(description="The common, canonical name of the dish requested by the user, e.g., 'Chicken Tinga' or 'Carnitas'.")
     ingredients: List[Ingredient] = Field(description="The list of ingredients for the recipe.")
 
 class Grade(BaseModel):

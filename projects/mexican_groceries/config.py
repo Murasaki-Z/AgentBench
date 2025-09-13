@@ -41,3 +41,13 @@ if not DISCORD_TEST_BOT_TOKEN:
 
 if not DISCORD_TEST_BOT_USER_ID:
     raise ValueError("DISCORD_TEST_BOT_USER_ID not found. Please set it in your .env file.")
+
+
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+IMAGE_GENERATION_PROVIDER = os.getenv("IMAGE_GENERATION_PROVIDER", "openai").lower()
+
+if not GOOGLE_API_KEY:
+    print("--- WARNING: GOOGLE_API_KEY not found. Gemini image generation will be disabled. ---")
+
+if IMAGE_GENERATION_PROVIDER not in ["gemini", "openai"]:
+    raise ValueError(f"Invalid IMAGE_GENERATION_PROVIDER: '{IMAGE_GENERATION_PROVIDER}'. Must be 'gemini' or 'openai'.")

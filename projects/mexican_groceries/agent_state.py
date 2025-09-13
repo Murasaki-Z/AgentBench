@@ -12,3 +12,4 @@ class AgentState(TypedDict):
     shopping_list: NotRequired[str]            # The final, formatted shopping list for the user
     missing_items: NotRequired[List[str]]      # Ingredients that could not be found in any store
     clarification_question: NotRequired[str]  #if base LLM isnt sure use a smaller model to clarify
+    dish_name: NotRequired[str]

@@ -125,8 +125,13 @@ def identify_ingredients_node(state: AgentState) -> dict:
     # We extract just the list of normalized names for the next step.
     normalized_ingredients = [i['normalized_name'] for i in response['ingredients']]
 
+    dish_name = response.get('dish_name', 'the requested dish')
+
     print(f" > Normalized ingredients identified: {normalized_ingredients}")
-    return {"ingredients_list": normalized_ingredients}
+    return {
+        "ingredients_list": normalized_ingredients,
+        "dish_name": dish_name
+    }
 
 def clarify_request_node(state: AgentState) -> dict:
     """
