@@ -22,6 +22,9 @@ sys.path.append(str(project_root))
 
 # --- Project Imports ---
 from core_lib.metrics_engine import MetricEngine
+from core_lib.assertion_engine import AssertionEngine 
+from core_lib.data_sinks import JSONDataSink
+
 
 # ==============================================================================
 # --- CORE ANALYTICS ENGINE ---
@@ -37,6 +40,8 @@ class AnalyticsEngine:
         Initializes the engine with a path to the metric definitions.
         """
         self.metric_engine = MetricEngine(config_path=metrics_config_path)
+        self.assertion_engine = AssertionEngine(config_path=metrics_config_path)
+
 
     def analyze_log_file(self, log_file_path: Path, lookback_hours: float):
         """
@@ -52,6 +57,7 @@ class AnalyticsEngine:
 
         # 1. Read and filter the log entries based on the lookback window
         recent_logs = self._get_recent_logs(log_file_path, lookback_hours)
+        
 
         if not recent_logs:
             print("--- No new log entries to analyze in the specified time window. ---")
@@ -63,11 +69,16 @@ class AnalyticsEngine:
         all_results = []
         for log_entry in recent_logs:
             calculated_metrics = self.metric_engine.calculate_all(log_entry)
+            assertion_failures = self.assertion_engine.run_all(log_entry)
             
             # Add some metadata from the log itself
             # calculated_metrics["timestamp_utc"] = log_entry.get("timestamp_utc")
+
             
-            all_results.append({"metrics": calculated_metrics})
+            all_results.append({
+                "metrics": calculated_metrics,
+                "assertion_failures": assertion_failures,
+            })
 
         # 3. Generate and print the final summary report
         self.print_summary(all_results, lookback_hours)
@@ -105,10 +116,27 @@ class AnalyticsEngine:
         # --- Step 1: Aggregate all results by metric name ---
         # We no longer need to pre-categorize. We'll figure out the type from the data.
         aggregated_results = defaultdict(list)
+
+        total_assertion_failures = 0
+        failed_assertion_counts = defaultdict(int)
         for result in all_results:
-            metrics = result.get("metrics", {})
-            for name, value in metrics.items():
-                aggregated_results[name].append(value)
+            failures = result.get("assertion_failures", [])
+            if failures:
+                total_assertion_failures += 1
+                # We can also track which specific assertions failed most often
+                for failure_reason in failures:
+                    assertion_name = failure_reason.split("'")[1] # Extracts the name
+                    failed_assertion_counts[assertion_name] += 1
+        
+        # --- NEW: Add the Assertion Summary section to the report ---
+        pass_count = len(all_results) - total_assertion_failures
+        pass_rate = (pass_count / len(all_results)) * 100 if all_results else 100
+        print(f"\n--- Assertion Summary ---")
+        print(f"- Pass Rate: {pass_rate:.1f}% ({pass_count}/{len(all_results)} passed checks)")
+        if failed_assertion_counts:
+            print("- Top Failing Assertions:")
+            for name, count in sorted(failed_assertion_counts.items(), key=lambda item: item[1], reverse=True):
+                print(f"  - '{name}': {count} failures")
 
         # --- Step 2: Dynamically create report sections ---
         numeric_reports = {}
@@ -204,7 +232,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--hours",
         type=float,
-        default=48,
+        default=4800,#hours
         help="Lookback window in hours for log analysis."
     )
     

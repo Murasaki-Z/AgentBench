@@ -33,3 +33,38 @@ metrics:
     options:
       format_as_percent: true
       on_zero_denominator: 100.0
+
+# ==============================================================================
+# Assertions: Objective, pass/fail checks for every run.
+# If any of these fail, the run is considered a critical failure.
+# ==============================================================================
+assertions:
+  - name: "Must produce a primary output"
+    description: "Checks that the agent produced either a shopping list or a clarification."
+    # This checks that AT LEAST ONE of the fields in the list exists and is not empty.
+    type: must_exist_one_of
+    fields: [shopping_list, clarification_question]
+
+  - name: "Intent must match the final output"
+    description: "Ensures the agent's final action is consistent with its initial intent."
+    type: fields_must_be_consistent
+    # This is a list of conditional rules.
+    conditions:
+      - if:
+          field: intent
+          equals: "recipe_request"
+        then:
+          field: shopping_list
+          must_exist: true
+      - if:
+          field: intent
+          equals: "ambiguous"
+        then:
+          field: clarification_question
+          must_exist: true
+      - if:
+          field: intent
+          equals: "off_topic"
+        then:
+          field: clarification_question
+          must_exist: true
