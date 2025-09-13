@@ -39,16 +39,39 @@ metrics:
 # If any of these fail, the run is considered a critical failure.
 # ==============================================================================
 assertions:
+  - name: "Intent must be valid and initial state clean"
+    # This check should run right after the intent is classified.
+    stage: post_intent_classification
+    description: "Ensures the intent is valid and no outputs exist yet."
+    type: fields_must_be_consistent
+    conditions:
+      - if: # This condition is always true, so this check always runs for this stage
+          field: intent 
+          exists: true
+        then:
+          # Check that the intent value is one of our allowed types
+          field: intent
+          is_in: ["recipe_request", "ambiguous", "off_topic"]
+      - if: # Another check for this stage
+          field: intent
+          exists: true
+        then:
+          # At this early stage, there should be NO shopping list
+          field: shopping_list
+          must_not_exist: true
+
   - name: "Must produce a primary output"
+    # This check should run at the very end of the process.
+    stage: final_check
     description: "Checks that the agent produced either a shopping list or a clarification."
-    # This checks that AT LEAST ONE of the fields in the list exists and is not empty.
     type: must_exist_one_of
     fields: [shopping_list, clarification_question]
 
   - name: "Intent must match the final output"
+    # This check also runs at the end.
+    stage: final_check
     description: "Ensures the agent's final action is consistent with its initial intent."
     type: fields_must_be_consistent
-    # This is a list of conditional rules.
     conditions:
       - if:
           field: intent
@@ -59,12 +82,6 @@ assertions:
       - if:
           field: intent
           equals: "ambiguous"
-        then:
-          field: clarification_question
-          must_exist: true
-      - if:
-          field: intent
-          equals: "off_topic"
         then:
           field: clarification_question
           must_exist: true

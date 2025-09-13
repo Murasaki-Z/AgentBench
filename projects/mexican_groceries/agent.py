@@ -16,6 +16,10 @@ from .agent_state import AgentState
 from .schemas import Recipe, Intent
 from core_lib.semantic_tools import find_best_matches_batched 
 
+from core_lib.assertion_engine import AssertionEngine
+from core_lib.graph_components import AssertionCheckpointNode, route_on_assertion
+from pathlib import Path # Ensure Path is imported
+
 
 # --- SERVICE and DATA LOADING ---
 
@@ -264,9 +268,36 @@ def master_router(state: AgentState) -> str:
         print(" > Decision: No clear intent. Defaulting to CLARIFY.")
         return "clarify"
 
-# --- GRAPH ASSEMBLY ---
+
+# ==============================================================================
+# --- GRAPH ASSEMBLY (V5 - With Real-Time Safety Checkpoints) ---
+# ==============================================================================
+
 from langgraph.graph import StateGraph, END
 
+# --- 1. Initialize Engines ---
+# The path to the single source of truth for metrics and assertions.
+config_path = Path(__file__).parent / "evaluation/metrics_definition.yaml"
+assertion_engine = AssertionEngine(config_path=config_path)
+
+# --- 2. Create Instances of Reusable Checkpoint Nodes ---
+# We create one checkpoint instance for each stage we want to check in our graph.
+checkpoint_post_intent = AssertionCheckpointNode(
+    assertion_engine=assertion_engine,
+    stage_name="post_intent_classification"
+)
+
+# --- 3. Define a New "Handle Failure" Node ---
+# This is the safe exit path for our graph if an assertion fails.
+def handle_failure_node(state: AgentState) -> dict:
+    """A safe termination node that reports assertion failures."""
+    print("---NODE: Handling Assertion Failure---")
+    failures = state.get("assertion_failures", ["Unknown failure."])
+    # For now, we'll just put the failure message into the clarification question field
+    # so the user sees a helpful error message.
+    return {"clarification_question": f"I'm sorry, I encountered a critical internal error: {failures[0]}"}
+
+# --- 4. Build the Workflow ---
 workflow = StateGraph(AgentState)
 
 workflow.add_node("classify_intent", classify_intent_node)
@@ -275,14 +306,38 @@ workflow.add_node("clarify_request", clarify_request_node)
 workflow.add_node("search_stores", search_stores_node)
 workflow.add_node("compile_list", compile_shopping_list_node)
 
+workflow.add_node("handle_failure", handle_failure_node)
+workflow.add_node("checkpoint_post_intent", checkpoint_post_intent.run)
+
 workflow.set_entry_point("classify_intent")
 
+workflow.add_edge("classify_intent", "checkpoint_post_intent")
 
-# --- Add the Conditional Edge ---
-# decide the main path
+
+def master_router_entry_point(state: AgentState) -> dict:
+    """Dummy node that serves as a named entry point for the master router."""
+    print("--- Entering Master Router Logic ---")
+    return {}
+workflow.add_node("master_router_conditional", master_router_entry_point)
+
+
+# From the checkpoint, we use our generic router to decide where to go.
 workflow.add_conditional_edges(
-    "classify_intent",
-    master_router,
+    "checkpoint_post_intent",
+    route_on_assertion, # Our new "pass" or "fail" router
+    {
+        # If the router returns "pass", we proceed to the master router as before.
+        "pass": "master_router_conditional",
+        # If the router returns "fail", we go directly to our safe failure handler.
+        "fail": "handle_failure"
+    }
+)
+
+
+
+workflow.add_conditional_edges(
+    "master_router_conditional",
+    master_router, # The original master_router function works perfectly here
     {
         "identify_ingredients": "identify_ingredients",
         "clarify": "clarify_request"
@@ -293,5 +348,7 @@ workflow.add_edge("identify_ingredients", "search_stores")
 workflow.add_edge("search_stores", "compile_list")
 workflow.add_edge("compile_list", END)
 workflow.add_edge("clarify_request", END)
+workflow.add_edge("handle_failure", END)
+
 
 graph = workflow.compile()

@@ -69,7 +69,7 @@ class AnalyticsEngine:
         all_results = []
         for log_entry in recent_logs:
             calculated_metrics = self.metric_engine.calculate_all(log_entry)
-            assertion_failures = self.assertion_engine.run_all(log_entry)
+            assertion_failures = self.assertion_engine.run_stage("final_check", log_entry)
             
             # Add some metadata from the log itself
             # calculated_metrics["timestamp_utc"] = log_entry.get("timestamp_utc")
