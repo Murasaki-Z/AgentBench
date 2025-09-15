@@ -4,35 +4,36 @@
 [![Python Version](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![LangChain](https://img.shields.io/badge/built%20with-LangChain-green.svg)](https://www.langchain.com/)
 
-An open-source framework for building and, more importantly, **evaluating** AI agents. This project started as a personal learning journey into LangGraph and quickly evolved into a suite of practical tools for measuring and improving agent performance in a data-driven way.
+An open-source, autonomous "Red Team" framework for stress-testing and evaluating AI agents.
 
-The core idea is to move beyond just building agents that *work* on the happy path, and start building systems to understand *how well* they work in the real world.
+The core of this project is the RedTeamCommander, an intelligent agent designed to solve one of the hardest problems in AI development: How do you find your agent's weaknesses before your users do?
 
-This repository includes a fun example agent (`MexicanGroceries`), but the real goal is to share the evaluation tools we've built along the way.
+Our approach is a unique, interactive "glass box" testing method. Instead of treating your agent as a black box, the RedTeamCommander collaborates with you to build a deep and accurate understanding of its capabilities, and then uses that understanding to generate a powerful and comprehensive test suite.
 
-*Here's a look at the decision graph for our example agent, which helps visualize the kind of workflows you can build and test with this framework.*
-![Agent Graph Visualization](projects/mexican_groceries/evaluation/graph_visualization.png) 
+### The Autonomous Workflow
+The RedTeamCommander is designed to be your expert QA partner. Here's how it works:
 
----
+Targeted Code Analysis (RAG): You don't give it any instructions. You simply point it directly to your agent's "brain" by listing the key source code files in a simple config. The commander ingests and analyzes only this relevant code to build its initial understanding - fully autonomously
 
-### A Practical Approach to Agent Development
+AI-Powered Deduction: It uses a Retrieval-Augmented Generation (RAG) pipeline to analyze the code and produce a detailed, step-by-step summary of what it thinks your agent does, from its core logic paths to its specific tools.
 
-If you've worked with LLMs, you know that testing them can be tricky. They're non-deterministic, and it's hard to tell if a change you made is a real improvement or just a lucky fluke. This project is our attempt to tackle that problem head-on.
+Human-in-the-Loop Verification: This is the crucial step. The commander presents its analysis to you and asks for feedback. It shows you what it has learned and asks you to fill in any missing blanks or correct its assumptions. This ensures the tests are grounded in reality, not AI hallucination.
 
-Our philosophy is simple: **good agents are built on good data**. We've focused on creating tools that help you:
-1.  **Log Everything:** Capture the full context of every agent interaction.
-2.  **Measure Objectively:** Define and calculate key performance indicators (KPIs) from those logs using a simple, declarative YAML configuration.
-3.  **Test Continuously:** Automate the process of checking for bugs and regressions in your agent's logic.
+Autonomous Test Generation: Armed with a perfect, human-verified understanding of your agent, the commander then autonomously generates a rich and diverse suite of test cases. It creates unique user personas and challenging queries designed to probe your agent's specific capabilities, edge cases, and potential failure points.
 
-We're sharing this in the hope that it's as useful to other developers and data professionals as it has been for our own learning.
+The end result is a high-quality, auto-generated test file that is far more comprehensive than what could be written by hand, created through a powerful partnership between AI analysis and human expertise.
+This repository contains both the RedTeamCommander framework and a complete example "Blue Team" agent (MexicanCookingBot) to demonstrate the full end-to-end workflow.
+
+Here's a look at the "Blue Team" agent's decision graph—a visual map of the kind of complex, agentic workflows you can build and then immediately test with AgentScope.
+![alt text](projects/graph_visualization.png)
 
 ### 🗺️ How This Repository is Organized
 
-We've structured this project as a monorepo to keep all the related parts together. Here's a quick tour:
+I structured this project as a monorepo to keep all the related parts together. Here's a quick tour:
 
 ```
 /
-├── core_library/             # Reusable tools we built for the framework.
+├── core_lib/                 # Reusable tools I built for the framework.
 │   ├── metric_engine.py      # The engine that parses your YAML and calculates metrics.
 │   ├── assertion_engine.py   # The engine for running pass/fail quality checks.
 │   └── ...                   # Connectors, other tools.
@@ -50,7 +51,7 @@ We've structured this project as a monorepo to keep all the related parts togeth
 ---
 ### Getting Started
 
-This guide will get you from cloning the repository to having a live agent running on Discord.
+This guide will get you from cloning the repository to having a agent on Discord, ready to be analysed by the RedTeam.
 
 **1. Prerequisites**
 
@@ -58,19 +59,14 @@ You'll need Python 3.10 or newer and Git installed on your machine.
 
 **2. Installation**
 
-First, clone the project and move into the directory.
+First, clone the project and cd into the directory.
 
 ```bash
-git clone https://github.com/your-username/AgentBench.git
+git clone https://github.com/Murasaki-Z/AgentBench.git
 cd AgentBench
 ```
 
-Next, it's a good idea to create a virtual environment to keep your dependencies clean.
-
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows, use `venv\Scripts\activate`
-```
+(It's a good idea to create a virtual environment to keep your dependencies clean.)
 
 Now, install all the required libraries from the `requirements.txt` file.
 
@@ -80,59 +76,51 @@ pip install -r requirements.txt
 
 **3. Configuration**
 
-The project uses a `.env` file to handle secret API keys. We've included a template to make this easy.
+The project uses a `.env` file to handle secret API keys. I have included a template to make this easy.
 
 *   Find the file named `.env.example` in the main directory.
 *   Make a copy of it and rename the copy to just `.env`.
-*   Open your new `.env` file and fill in your own API keys. You'll need keys from OpenAI and Google (for Gemini), as well as a token for your Discord bot. The file has comments explaining each key.
+*   Open your new `.env` file and fill in your own API keys. You'll need keys from OpenAI and Google (for Gemini), as well as a token for your Discord bot.
 
-**4. Running the Live Bot**
 
-To run the Mexican Groceries bot, you first need to create a "Bot User" in the Discord Developer Portal and invite it to a server you control. Make sure to enable the "Message Content Intent" in the bot's settings.
+### The Evaluation & Red Teaming Workflow
 
-Once your bot is invited and your `.env` file is ready, you can start the agent with this command:
+This is where the magic happens. Here's the recommended workflow.
 
-```bash
-python -m projects.mexican_groceries
-```
-
-Your terminal should show that the bot has logged in. You can now go to your Discord server and talk to it by mentioning its name.
-
-### Running the Evaluation Tools
-
-The real power of this project is in the tools that help you measure your agent.
-
-**Analyzing Production Logs**
-
-The `local_evaluator.py` script is a batch analyzer. It reads the `production_log.jsonl` file that your live bot creates and generates a performance summary.
-
-To run an analysis on all the logs from the last 24 hours, use this command:
+Step 1: Generate Tests with the RedTeamCommander
+Run our autonomous test designer. It will analyze the cooking bot's code and then interactively work with you to generate a high-quality test file.
 
 ```bash
-python synthetic_users/local_evaluator.py --hours 24
+python synthetic_users/run_red_team.py
 ```
+This will create a new file: test_cases_autogenerated.py. For now, you can manually rename this to test_cases.py to use it in the next steps.
 
-This will print a detailed reporin your console, showing you averages for your metrics and how your agent's logic paths were distributed.
+Step 2: Run End-to-End Tests
 
-**Running End-to-End Tests**
+Now, test your live bot against the new, AI-generated test suite.
 
-The `e2e_evaluator.py` script tests your full system by talking to your live bot through Discord.
-
-*   **Step 1:** Make sure your live bot is running in one terminal.
-*   **Step 2:** In a second terminal, run the E2E evaluator:
+Terminal 1: Make sure your live bot is running.
+Terminal 2: Run the E2E evaluator.
 
 ```bash
 python synthetic_users/e2e_evaluator.py
 ```
 
-This will run through the pre-defined test cases and give you a high-level quality score based on an AI grader's assessment.
+This gives you a high-level quality score for your agent's performance in a production-like environment.
 
-### Future Ideas & Contributing
+Step 3: Analyze Production Logs
 
-This project is an active learning journey. We have a lot of ideas for where to take it next, including:
+After you've played with the bot yourself, you can run our batch analyzer on the logs it generated. This script uses your metrics_definition.yaml to create a detailed performance report.
 
-*   Giving the main agent conversational memory to handle follow-up questions.
-*   Building the autonomous "Red Team" agent to auto-generate test cases.
-*   Integrating the analytics back into the agent so it can make data-driven suggestions.
+```bash
+python synthetic_users/local_evaluator.py --hours 24
+```
+This will show you objective KPIs, like how often each logical path was taken and the average success rate of its tools.
 
-If you find any bugs or have ideas for new features, feel free to open an issue.
+### Future Vision & Contributing
+
+This project is an active and ambitious journey. Our roadmap is focused on making the ecosystem even more autonomous and intelligent, with features like:
+Giving the main agent conversational memory.
+Building a MetricsMaestro to auto-generate the metrics_definition.yaml.
+Creating an automated feedback loop where production failures are used to generate new test cases.
+We believe that building trustworthy AI requires a new generation of open-source tools. If this mission resonates with you, feel free to open an issue with your ideas or submit a pull request
