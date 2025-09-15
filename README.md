@@ -4,32 +4,40 @@
 [![Python Version](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![LangChain](https://img.shields.io/badge/built%20with-LangChain-green.svg)](https://www.langchain.com/)
 
-An open-source, autonomous "Red Team" framework for stress-testing and evaluating AI agents.
+An open-source, autonomous **"Red Team" framework** for stress-testing and evaluating AI agents.
 
-The core of this project is the RedTeamCommander, an intelligent agent designed to solve one of the hardest problems in AI development: How do you find your agent's weaknesses before your users do?
+The core of this project is the **`RedTeamCommander`**, an intelligent agent designed to solve one of the hardest problems in AI development: How do you find your agent's weaknesses before your users do?
 
-Our approach is a unique, interactive "glass box" testing method. Instead of treating your agent as a black box, the RedTeamCommander collaborates with you to build a deep and accurate understanding of its capabilities, and then uses that understanding to generate a powerful and comprehensive test suite.
+Our approach is a unique, interactive "glass box" testing method. Instead of treating your agent as a black box, the `RedTeamCommander` collaborates with you to build a deep and accurate understanding of its capabilities, and then uses that understanding to generate a powerful and comprehensive test suite.
 
 ### The Autonomous Workflow
-The RedTeamCommander is designed to be your expert QA partner. Here's how it works:
 
-Targeted Code Analysis (RAG): You don't give it any instructions. You simply point it directly to your agent's "brain" by listing the key source code files in a simple config. The commander ingests and analyzes only this relevant code to build its initial understanding - fully autonomously
+The `RedTeamCommander` is designed to be your expert QA partner. Here's how it works:
 
-AI-Powered Deduction: It uses a Retrieval-Augmented Generation (RAG) pipeline to analyze the code and produce a detailed, step-by-step summary of what it thinks your agent does, from its core logic paths to its specific tools.
+1.  **Targeted Code Analysis (RAG):** You don't give it any instructions. You simply point it directly to your agent's "brain" by listing the key source code files in a simple config. The commander ingests and analyzes only this relevant code to build its initial understanding - fully autonomously
 
-Human-in-the-Loop Verification: This is the crucial step. The commander presents its analysis to you and asks for feedback. It shows you what it has learned and asks you to fill in any missing blanks or correct its assumptions. This ensures the tests are grounded in reality, not AI hallucination.
+2.  **AI-Powered Deduction:** It uses a Retrieval-Augmented Generation (RAG) pipeline to analyze the code and produce a detailed, step-by-step summary of what it thinks your agent does, from its core logic paths to its specific tools.
 
-Autonomous Test Generation: Armed with a perfect, human-verified understanding of your agent, the commander then autonomously generates a rich and diverse suite of test cases. It creates unique user personas and challenging queries designed to probe your agent's specific capabilities, edge cases, and potential failure points.
+3.  **Human-in-the-Loop Verification:** This is the crucial step. The commander presents its analysis to you and asks for feedback. It shows you what it has learned and asks you to fill in any missing blanks or correct its assumptions. This ensures the tests are grounded in reality, not AI hallucination.
 
-The end result is a high-quality, auto-generated test file that is far more comprehensive than what could be written by hand, created through a powerful partnership between AI analysis and human expertise.
-This repository contains both the RedTeamCommander framework and a complete example "Blue Team" agent (MexicanCookingBot) to demonstrate the full end-to-end workflow.
+4.  **Autonomous Test Generation:** Armed with a perfect, human-verified understanding of your agent, the commander then autonomously generates a rich and diverse suite of test cases. It creates unique user personas and challenging queries designed to probe your agent's specific capabilities, edge cases, and potential failure points.
+
+Here is a quick look at the steps
+![alt text](projects/red_team_commander_graph.png)
+
+
+
+The end result is a high-quality, auto-generated test file that is far far more comprehensive than what could be written by hand. 
+
+
+This repository contains both the `RedTeamCommander` framework and a complete example "Blue Team" agent (`MexicanGroceriesBot`) to demonstrate the full end-to-end workflow.
 
 Here's a look at the "Blue Team" agent's decision graph—a visual map of the kind of complex, agentic workflows you can build and then immediately test with AgentScope.
 ![alt text](projects/graph_visualization.png)
 
 ### 🗺️ How This Repository is Organized
 
-I structured this project as a monorepo to keep all the related parts together. Here's a quick tour:
+I structured this project to keep all the related parts together. Here's a brief overview:
 
 ```
 /
@@ -66,7 +74,7 @@ git clone https://github.com/Murasaki-Z/AgentBench.git
 cd AgentBench
 ```
 
-(It's a good idea to create a virtual environment to keep your dependencies clean.)
+> **Note:** It's a good idea to create a virtual environment to keep your dependencies clean.
 
 Now, install all the required libraries from the `requirements.txt` file.
 
@@ -87,7 +95,7 @@ The project uses a `.env` file to handle secret API keys. I have included a temp
 
 This is where the magic happens. Here's the recommended workflow.
 
-Step 1: Generate Tests with the RedTeamCommander
+Step 1: Generate Tests with the `RedTeamCommander`
 Run our autonomous test designer. It will analyze the cooking bot's code and then interactively work with you to generate a high-quality test file.
 
 ```bash
@@ -121,6 +129,5 @@ This will show you objective KPIs, like how often each logical path was taken an
 
 This project is an active and ambitious journey. Our roadmap is focused on making the ecosystem even more autonomous and intelligent, with features like:
 Giving the main agent conversational memory.
-Building a MetricsMaestro to auto-generate the metrics_definition.yaml.
 Creating an automated feedback loop where production failures are used to generate new test cases.
 We believe that building trustworthy AI requires a new generation of open-source tools. If this mission resonates with you, feel free to open an issue with your ideas or submit a pull request

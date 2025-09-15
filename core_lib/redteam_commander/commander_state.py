@@ -12,6 +12,9 @@ class RedTeamCommanderState(TypedDict):
     # --- INPUTS ---
     # The initial configuration provided by the user.
     target_config: NotRequired[Dict[str, Any]]
+    #for flexibility add key and model to state.
+    openai_api_key: NotRequired[str]
+    default_model: NotRequired[str] 
     
     # --- INTERMEDIATE DATA ---
     # This will hold the initialized RAG vector store object. 'Any' is used

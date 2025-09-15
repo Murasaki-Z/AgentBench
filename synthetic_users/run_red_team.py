@@ -75,6 +75,24 @@ def main():
         print("\nYou can now rename this file to 'test_cases.py' to use it with the evaluators.")
     else:
         print("❌ The process finished, but no test case file was generated.")
+    
+    print("\n--- Generating graph visualization... ---")
+    try:
+        # Get the graph structure as a PNG image
+        image_bytes = commander_graph.get_graph().draw_png()
+        
+        # Define the output path in the root of the project
+        output_path = project_root / "red_team_commander_graph.png"
+        
+        # Save the image to a file
+        with open(output_path, "wb") as f:
+            f.write(image_bytes)
+        print(f"✅ Visualization saved successfully to: {output_path}")
+    except Exception as e:
+        print(f"---a WARNING: Could not generate visualization. ---")
+        print(f"--- This usually means the 'graphviz' system package is not installed. ---")
+        print(f"--- See: https://graphviz.org/download/ ---")
+        print(f"--- Error details: {e} ---")
 
 if __name__ == "__main__":
     main()

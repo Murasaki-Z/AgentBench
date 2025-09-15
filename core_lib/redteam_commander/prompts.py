@@ -7,6 +7,7 @@ Your task is to analyze this code and produce a clear, human-readable, step-by-s
 Focus on the agent's main capabilities, decision points, and tools.
 
 Based on your analysis, also formulate 2-3 clarifying questions to ask the user to fill in any gaps in your understanding. 
+Do not offer to fix the code
 
 **Code Context:**
 {context}
@@ -24,8 +25,11 @@ Based on your analysis, also formulate 2-3 clarifying questions to ask the user 
 
 # Prompt to generate diverse user personas
 GENERATE_PERSONAS_PROMPT = """
-You are an expert in software quality assurance and character design.
-Based on the following authoritative description of a target AI agent, generate a JSON list of 8 diverse user personas designed to test its limits.
+You are an expert in software quality assurance, focusing on the USER EXPERIENCE of AI agents.
+You have been given a highly detailed technical description of a target agent's internal logic.
+
+Your task is to **ignore the implementation details** and focus on the **observable, user-facing behaviors**.
+Based on this, generate a JSON list of 4 diverse user personas designed to test the agent's conversational abilities and core features from a user's perspective.
 
 Include a mix of the following archetypes:
 - Standard "happy path" users.
@@ -55,5 +59,6 @@ The queries should be designed to specifically test the agent's known capabiliti
 **Target Agent Capabilities:**
 {context}
 
-Generate a JSON list of 3 distinct query strings. Do not add any other text.
+Return your response as a single, valid JSON object with a single key "queries" which contains a list of 3 distinct query strings.
+Do not add any other text, preambles, or explanations outside of the JSON object.
 """

@@ -110,18 +110,24 @@ def generate_scenarios_and_write_file_node(state: RedTeamCommanderState) -> Dict
     all_test_cases = []
     prompt = PromptTemplate.from_template(GENERATE_SCENARIOS_PROMPT)
 
-    llm = get_llm_from_state(state)
+    llm = ChatOpenAI(#fix for json bug
+        api_key=state.get("openai_api_key"),
+        model="gpt-5-mini-2025-08-07",
+        model_kwargs={"response_format": {"type": "json_object"}},
+    )
+
     chain = prompt | llm | JsonOutputParser()
 
     for i, persona in enumerate(personas):
-        print(f" > Generating scenarios for persona {i+1}/{len(personas)}: {persona['name']}")
+        print(f" > Generating scenarios for persona {i+1}/{len(personas)}: {persona['name']}, \n{persona['motivation'][:50]}")
         queries = chain.invoke({
             "persona_name": persona['name'],
             "persona_motivation": persona['motivation'],
             "persona_description": persona['description'],
             "context": context
         })
-        
+
+        print(queries)
         # Format into the structure our evaluator expects
         for query in queries:
             all_test_cases.append({
