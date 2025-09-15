@@ -1,4 +1,8 @@
 # core_library/redteam_commander/prompts.py
+from pydantic import BaseModel, Field
+from typing import List
+
+
 
 # Prompt to synthesize the RAG results into a human-readable draft
 DRAFT_DESCRIPTION_PROMPT = """
@@ -62,3 +66,7 @@ The queries should be designed to specifically test the agent's known capabiliti
 Return your response as a single, valid JSON object with a single key "queries" which contains a list of 3 distinct query strings.
 Do not add any other text, preambles, or explanations outside of the JSON object.
 """
+
+class ScenarioQueries(BaseModel):
+    """A model for the list of queries generated for a single persona."""
+    queries: List[str] = Field(description="A list of 3 distinct user query strings.")

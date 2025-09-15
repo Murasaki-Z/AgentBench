@@ -17,6 +17,7 @@ from .prompts import (
     DRAFT_DESCRIPTION_PROMPT,
     GENERATE_PERSONAS_PROMPT,
     GENERATE_SCENARIOS_PROMPT,
+    ScenarioQueries
 )
 
 # ==============================================================================
@@ -108,7 +109,15 @@ def generate_scenarios_and_write_file_node(state: RedTeamCommanderState) -> Dict
     context = state["final_context"]
     
     all_test_cases = []
-    prompt = PromptTemplate.from_template(GENERATE_SCENARIOS_PROMPT)
+    
+    parser = JsonOutputParser(pydantic_object=ScenarioQueries)
+
+    prompt = PromptTemplate(
+        template=GENERATE_SCENARIOS_PROMPT,
+        input_variables=["persona_name", "persona_motivation", "persona_description", "context"],
+        partial_variables={"format_instructions": parser.get_format_instructions()}
+    )
+
 
     llm = ChatOpenAI(#fix for json bug
         api_key=state.get("openai_api_key"),
@@ -120,6 +129,7 @@ def generate_scenarios_and_write_file_node(state: RedTeamCommanderState) -> Dict
 
     for i, persona in enumerate(personas):
         print(f" > Generating scenarios for persona {i+1}/{len(personas)}: {persona['name']}, \n{persona['motivation'][:50]}")
+        
         queries = chain.invoke({
             "persona_name": persona['name'],
             "persona_motivation": persona['motivation'],
@@ -127,9 +137,10 @@ def generate_scenarios_and_write_file_node(state: RedTeamCommanderState) -> Dict
             "context": context
         })
 
-        print(queries)
+        query_list = queries.get('queries', [])
+
         # Format into the structure our evaluator expects
-        for query in queries:
+        for query in query_list:
             all_test_cases.append({
                 "case_id": f"{persona['name'].lower().replace(' ', '_')}_{i}",
                 "persona": persona['name'],
