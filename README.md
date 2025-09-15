@@ -22,8 +22,8 @@ The `RedTeamCommander` is designed to be your expert QA partner. Here's how it w
 
 4.  **Autonomous Test Generation:** Armed with a perfect, human-verified understanding of your agent, the commander then autonomously generates a rich and diverse suite of test cases. It creates unique user personas and challenging queries designed to probe your agent's specific capabilities, edge cases, and potential failure points.
 
-Here is a quick look at the steps
-![alt text](projects/red_team_commander_graph.png)
+Here is a the graphical representation of the steps
+![alt text](red_team_commander_graph.png)
 
 
 
@@ -33,7 +33,7 @@ The end result is a high-quality, auto-generated test file that is far far more 
 This repository contains both the `RedTeamCommander` framework and a complete example "Blue Team" agent (`MexicanGroceriesBot`) to demonstrate the full end-to-end workflow.
 
 Here's a look at the "Blue Team" agent's decision graph—a visual map of the kind of complex, agentic workflows you can build and then immediately test with AgentScope.
-![alt text](projects/graph_visualization.png)
+![alt text](graph_visualization.png)
 
 ### 🗺️ How This Repository is Organized
 
