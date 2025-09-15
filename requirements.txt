@@ -53,6 +53,7 @@ debugpy==1.6.2
 decorator==5.1.1
 defusedxml==0.7.1
 Deprecated==1.2.13
+discord.py==2.6.3
 distro==1.9.0
 dominate==2.7.0
 dotenv==0.9.9
@@ -82,6 +83,7 @@ fuzzywuzzy==0.18.0
 gevent==23.9.1
 gevent-websocket==0.10.1
 google==3.0.0
+google-ai-generativelanguage==0.6.15
 google-api-core==2.11.0
 google-api-python-client==2.86.0
 google-auth==2.17.3
@@ -89,6 +91,7 @@ google-auth-httplib2==0.1.0
 google-auth-oauthlib==1.0.0
 google-cloud==0.34.0
 google-cloud-texttospeech==2.14.1
+google-generativeai==0.8.5
 googleapis-common-protos==1.70.0
 greenlet==2.0.0
 grpcio==1.74.0
@@ -204,8 +207,8 @@ primp==0.15.0
 prometheus-client==0.14.1
 prompt-toolkit==3.0.30
 propcache==0.3.2
-proto-plus==1.22.2
-protobuf==6.32.1
+proto-plus==1.26.1
+protobuf==4.25.8
 psutil==5.9.1
 ptyprocess==0.7.0
 pure-eval==0.2.2
@@ -219,6 +222,7 @@ pydantic==2.10.1
 pydantic-settings==2.10.1
 pydantic_core==2.27.1
 Pygments==2.15.1
+pygraphviz==1.14
 pyOpenSSL==23.1.1
 pyparsing==3.0.9
 pypdf==3.5.2
